@@ -65,12 +65,12 @@ jobs:
         
     - name: Restore NuGet packages
       if: steps.cache-nuget.outputs.cache-hit != 'true'
-      working-directory: ${{ github.workspace }}/SentryDotnetDiagnostics
+      working-directory: ${{ github.workspace }}
       run: nuget restore ${{env.SOLUTION_FILE_PATH}}
 
     - id: get-variables
       name: Make Variables
-      working-directory: ${{ github.workspace }}/SentryDotnetDiagnostics
+      working-directory: ${{ github.workspace }}
       run: |
         $VERSION = Select-String -Path "Properties\AssemblyInfo.cs" -Pattern '^\[assembly: AssemblyVersion\(\"(.+)\"\)\]$' | select -expand Matches | foreach {$_.groups[1].value}
         echo "version=$VERSION" >> $env:GITHUB_OUTPUT

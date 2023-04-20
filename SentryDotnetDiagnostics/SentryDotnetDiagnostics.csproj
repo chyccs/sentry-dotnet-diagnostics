@@ -150,6 +150,10 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
+    <None Include="SentryDotnetDiagnostics.nuspec" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="nuget.exe" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="packages\Sentry.3.30.0\build\Sentry.targets" Condition="Exists('packages\Sentry.3.30.0\build\Sentry.targets')" />
