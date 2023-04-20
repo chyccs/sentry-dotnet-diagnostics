@@ -3,3 +3,5 @@ SentryDotnetDiagnostics/bin
 SentryDotnetDiagnostics/.vs
 SentryDotnetDiagnostics/packages
 .vs
+SentryDotnetDiagnostics/nuget.exe
+*.nupkg
