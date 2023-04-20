@@ -19,6 +19,30 @@ permissions:
   statuses: read
 
 jobs:
+  nuget:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: true
+    env:
+      tag_name: ${{ github.event.release.tag_name }}
+
+    steps:
+    - uses: actions/checkout@master
+    - uses: nuget/setup-nuget@v1
+      with:
+        nuget-version: '5.x'
+    - uses: actions/cache@v1
+      id: cache
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+    
+    - name: NuGet Restore
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
+        nuget setApiKey oy2hh7v7mo7gd46pvq2amr35xouoli6ejdwylbi33r4lge
+        nuget push YourPackage.nupkg -Source https://api.nuget.org/v3/index.json
+
 
   create_installer:
     runs-on: windows-latest

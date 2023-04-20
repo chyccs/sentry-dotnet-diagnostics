@@ -65,7 +65,7 @@ jobs:
         
     - name: Restore NuGet packages
       if: steps.cache-nuget.outputs.cache-hit != 'true'
-      working-directory: ${{ github.workspace }}
+      working-directory: ${{ github.workspace }}/SentryDotnetDiagnostics
       run: nuget restore ${{env.SOLUTION_FILE_PATH}}
 
     - id: get-variables
