@@ -70,7 +70,7 @@ jobs:
 
     - id: get-variables
       name: Make Variables
-      working-directory: ${{ github.workspace }}
+      working-directory: ${{ github.workspace }}/SentryDotnetDiagnostics
       run: |
         $VERSION = Select-String -Path "Properties\AssemblyInfo.cs" -Pattern '^\[assembly: AssemblyVersion\(\"(.+)\"\)\]$' | select -expand Matches | foreach {$_.groups[1].value}
         echo "version=$VERSION" >> $env:GITHUB_OUTPUT
