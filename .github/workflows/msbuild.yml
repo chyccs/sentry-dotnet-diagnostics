@@ -6,7 +6,6 @@ on:
 env:
   SOLUTION_FILE_PATH: .
   BUILD_CONFIGURATION: Release
-  tag_name: '0.0.0.${{ github.run_number }}'
 
 permissions:
   contents: read
