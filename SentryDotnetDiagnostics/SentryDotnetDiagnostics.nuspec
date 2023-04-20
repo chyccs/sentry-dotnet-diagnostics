@@ -7,7 +7,7 @@
     <authors>$author$</authors>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <license type="expression">MIT</license>
-    <icon>https://raw.githubusercontent.com/chyccs/sentry-dotnet-diagnostics/master/icon.png</icon>
+    <iconUrl>https://raw.githubusercontent.com/chyccs/sentry-dotnet-diagnostics/master/icon.png</iconUrl>
     <projectUrl>https://github.com/chyccs/sentry-dotnet-diagnostics</projectUrl>
     <description>$description$</description>
     <releaseNotes></releaseNotes>
