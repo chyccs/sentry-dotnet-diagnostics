@@ -66,7 +66,8 @@ jobs:
         msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} ${{env.SOLUTION_FILE_PATH}}
 
     - name: NuGet Upload
-      if: steps.cache.outputs.cache-hit != 'true'
+      working-directory: ${{ github.workspace }}/SentryDotnetDiagnostics
       run: |
-        nuget setApiKey oy2hh7v7mo7gd46pvq2amr35xouoli6ejdwylbi33r4lge
-        nuget push YourPackage.nupkg -Source https://api.nuget.org/v3/index.json
+        nuget setApiKey ${{ secrets.NUGET }}
+        nuget pack
+        nuget push SentryDotnetDiagnostics.${{ steps.get-variables.outputs.version }}.nupkg -Source https://api.nuget.org/v3/index.json
