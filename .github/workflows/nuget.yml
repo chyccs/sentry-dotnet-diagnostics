@@ -1,4 +1,4 @@
-name: NSIS
+name: nuget
 
 on:
   release:
@@ -19,32 +19,8 @@ permissions:
   statuses: read
 
 jobs:
+
   nuget:
-    runs-on: windows-latest
-    strategy:
-      fail-fast: true
-    env:
-      tag_name: ${{ github.event.release.tag_name }}
-
-    steps:
-    - uses: actions/checkout@master
-    - uses: nuget/setup-nuget@v1
-      with:
-        nuget-version: '5.x'
-    - uses: actions/cache@v1
-      id: cache
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-    
-    - name: NuGet Restore
-      if: steps.cache.outputs.cache-hit != 'true'
-      run: |
-        nuget setApiKey oy2hh7v7mo7gd46pvq2amr35xouoli6ejdwylbi33r4lge
-        nuget push YourPackage.nupkg -Source https://api.nuget.org/v3/index.json
-
-
-  create_installer:
     runs-on: windows-latest
     strategy:
       fail-fast: true
@@ -56,14 +32,6 @@ jobs:
 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v1.0.2
-    
-    - name: Setup Sentry CLI
-      uses: mathieu-bour/setup-sentry-cli@main
-      with:
-        version: latest
-        token: ${{ SECRETS.SENTRY_AUTH_TOKEN }}
-        organization: ${{ secrets.SENTRY_ORG }}
-        project: ${{ secrets.SENTRY_PROJECT }}
       
     - id: cache-nuget
       uses: actions/cache@v3
@@ -71,9 +39,9 @@ jobs:
         path: |
             ~/.nuget/packages
             packages
-            NeoCRM_Centrex_Receiver/obj/NeoCRM_Centrex_Receiver.csproj.nuget.*
-            NeoCRM_Centrex_Receiver/obj/project.*
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/NeoCRM_Centrex_Receiver.csproj') }}
+            SentryDotnetDiagnostics/obj/SentryDotnetDiagnostics.csproj.nuget.*
+            SentryDotnetDiagnostics/obj/project.*
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/SentryDotnetDiagnostics.csproj') }}
         
     - name: Restore NuGet packages
       if: steps.cache-nuget.outputs.cache-hit != 'true'
@@ -82,7 +50,7 @@ jobs:
 
     - id: get-variables
       name: Make Variables
-      working-directory: ${{ github.workspace }}/NeoCRM_Centrex_Receiver
+      working-directory: ${{ github.workspace }}/SentryDotnetDiagnostics
       run: |
         $VERSION = Select-String -Path "Properties\AssemblyInfo.cs" -Pattern '^\[assembly: AssemblyVersion\(\"(.+)\"\)\]$' | select -expand Matches | foreach {$_.groups[1].value}
         if ( '${{ env.tag_name }}' -ne $VERSION )
@@ -92,102 +60,13 @@ jobs:
         }
         echo "version=$VERSION" >> $env:GITHUB_OUTPUT
 
-    - name: Register ocx
-      working-directory: ${{ github.workspace }}
-      run: |
-        regsvr32 Dependencies\LGUBaseOpenApi.ocx
-
     - name: Build
       working-directory: ${{ github.workspace }}
       run: |
         msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} ${{env.SOLUTION_FILE_PATH}}
 
-    - name: Copy files
-      working-directory: ${{ github.workspace }}
+    - name: NuGet Upload
+      if: steps.cache.outputs.cache-hit != 'true'
       run: |
-        xcopy "NeoCRM_Centrex_Receiver\bin\Release\" "@installer\source_files\" /s /y /h /e /k
-        xcopy "Dependencies" "@installer\source_files\" /s /y /h /e /k
-
-    - id: cache-codesign
-      uses: actions/cache@v3
-      with:
-        path: "@installer/cert.pfx"
-        key: ${{ runner.os }}-codesign-${{ secrets.CODESIGN_PW }}
-        
-    - name: Restore Code-Sign Certificate
-      if: steps.cache-codesign.outputs.cache-hit != 'true'
-      working-directory: ${{ github.workspace }}/@installer
-      run: |
-        "${{ secrets.CODESIGN_CERT }}" > cert.base64.txt
-        certutil -decode .\cert.base64.txt cert.pfx
-
-    - name: Sign Source File
-      working-directory: ${{ github.workspace }}/@installer
-      run: |
-        Get-ChildItem -recurse -path .\source_files -Include *.dll,*.exe,*.ocx | ForEach-Object {
-            .\signtool.exe sign /f cert.pfx /p ${{ secrets.CODESIGN_PW }} /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /v /a $_.FullName
-        }
-
-    - id: cache-nsis
-      uses: actions/cache@v3
-      with:
-        path: ${{ github.workspace }}/NSIS_Plugins
-        key: ${{ runner.os }}-nsis
-
-    - name: Download EnVar plugin for NSIS
-      uses: carlosperate/download-file-action@v1.0.3
-      if: steps.cache-nsis.outputs.cache-hit != 'true'
-      with:
-        file-url: https://nsis.sourceforge.io/mediawiki/images/7/7f/EnVar_plugin.zip
-        file-name: envar_plugin.zip
-        location: ${{ github.workspace }}
-
-    - name: Download PS plugin for NSIS
-      uses: carlosperate/download-file-action@v1.0.3
-      if: steps.cache-nsis.outputs.cache-hit != 'true'
-      with:
-        file-url: https://nsis.sourceforge.io/mediawiki/images/c/cf/PS.zip
-        file-name: PS.zip
-        location: ${{ github.workspace }}
-
-    - name: Extract EnVar plugin
-      if: steps.cache-nsis.outputs.cache-hit != 'true'
-      run: 7z x -o"${{ github.workspace }}/NSIS_Plugins" "${{ github.workspace }}/envar_plugin.zip"
-
-    - name: Extract PS plugin
-      if: steps.cache-nsis.outputs.cache-hit != 'true'
-      run: 7z x -o"${{ github.workspace }}/NSIS_Plugins" "${{ github.workspace }}/PS.zip"
-
-    - name: Create NSIS installer
-      uses: joncloud/makensis-action@publish
-      with:
-        script-file: "@installer/NeoCRM_Centrex_Receiver_Setup.nsi"
-        arguments: /DPRODUCT_VERSION=${{ steps.get-variables.outputs.version }}
-        additional-plugin-paths: ${{ github.workspace }}/NSIS_Plugins/Plugins
-
-    - name: Sign Installer File
-      if: ${{ success() }}
-      working-directory: ${{ github.workspace }}/@installer
-      run: .\signtool.exe sign /f cert.pfx /p ${{ secrets.CODESIGN_PW }} /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /v /a "NeoCRM_Centrex_Receiver_Setup_${{ steps.get-variables.outputs.version }}.exe"
-
-    - name: Upload release binaries
-      uses: alexellis/upload-assets@0.4.0
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        asset_paths: '["@installer/NeoCRM_Centrex_Receiver_Setup_${{ steps.get-variables.outputs.version }}.exe"]'
-
-    - name: Upload sentry artifacts
-      run: |
-          $env = "${{ github.event.release.target_commitish }}"
-          if ( $env -eq "master" )
-          {
-              $env = "dev"
-          }
-          $release_version = "NeoCRM_Centrex_Receiver@${{ steps.get-variables.outputs.version }}"
-          sentry-cli releases new $release_version
-          sentry-cli releases set-commits $release_version --auto --ignore-missing
-          sentry-cli releases files $release_version upload ./
-          sentry-cli upload-dif --include-sources ./
-          sentry-cli releases finalize $release_version
-          sentry-cli releases deploys $release_version new -e $env
+        nuget setApiKey oy2hh7v7mo7gd46pvq2amr35xouoli6ejdwylbi33r4lge
+        nuget push YourPackage.nupkg -Source https://api.nuget.org/v3/index.json
