@@ -1,0 +1,72 @@
+name: nuget
+
+on:
+  release:
+    types: [published]
+
+env:
+  SOLUTION_FILE_PATH: .
+  BUILD_CONFIGURATION: Release
+
+permissions:
+  contents: write
+  checks: write
+  actions: read
+  issues: read
+  packages: write
+  pull-requests: read
+  repository-projects: read
+  statuses: read
+
+jobs:
+
+  nuget:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: true
+    env:
+      tag_name: ${{ github.event.release.tag_name }}
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1.0.2
+      
+    - id: cache-nuget
+      uses: actions/cache@v3
+      with:
+        path: |
+            ~/.nuget/packages
+            packages
+            SentryDotnetDiagnostics/obj/SentryDotnetDiagnostics.csproj.nuget.*
+            SentryDotnetDiagnostics/obj/project.*
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/SentryDotnetDiagnostics.csproj') }}
+        
+    - name: Restore NuGet packages
+      if: steps.cache-nuget.outputs.cache-hit != 'true'
+      working-directory: ${{ github.workspace }}
+      run: nuget restore ${{env.SOLUTION_FILE_PATH}}
+
+    - id: get-variables
+      name: Make Variables
+      working-directory: ${{ github.workspace }}/SentryDotnetDiagnostics
+      run: |
+        $VERSION = Select-String -Path "Properties\AssemblyInfo.cs" -Pattern '^\[assembly: AssemblyVersion\(\"(.+)\"\)\]$' | select -expand Matches | foreach {$_.groups[1].value}
+        if ( '${{ env.tag_name }}' -ne $VERSION )
+        {
+            ((Get-Content -path Properties\AssemblyInfo.cs -Raw) -replace $VERSION,'${{ env.tag_name }}') | Set-Content -Path Properties\AssemblyInfo.cs
+            $VERSION = "${{ env.tag_name }}"
+        }
+        echo "version=$VERSION" >> $env:GITHUB_OUTPUT
+
+    - name: Build
+      working-directory: ${{ github.workspace }}
+      run: |
+        msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} ${{env.SOLUTION_FILE_PATH}}
+
+    - name: NuGet Upload
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
+        nuget setApiKey oy2hh7v7mo7gd46pvq2amr35xouoli6ejdwylbi33r4lge
+        nuget push YourPackage.nupkg -Source https://api.nuget.org/v3/index.json

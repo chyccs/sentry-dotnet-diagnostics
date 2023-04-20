@@ -1,4 +1,6 @@
-﻿SentryDotnetDiagnostics/obj
-SentryDotnetDiagnostics/bin
-SentryDotnetDiagnostics/.vs
-SentryDotnetDiagnostics/packages
+﻿obj
+bin
+packages
+.vs
+nuget.exe
+*.nupkg
