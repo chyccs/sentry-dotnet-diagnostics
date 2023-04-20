@@ -12,6 +12,6 @@
     <description>$description$</description>
     <releaseNotes></releaseNotes>
     <copyright>$copyright$</copyright>
-    <tags></tags>
+    <tags>sentry monitoring diagnostics wmi</tags>
   </metadata>
 </package>
