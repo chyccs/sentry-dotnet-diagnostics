@@ -70,4 +70,4 @@ jobs:
       run: |
         nuget setApiKey ${{ secrets.NUGET }}
         nuget pack
-        nuget push SentryDotnetDiagnostics.${{ steps.get-variables.outputs.version }}.nupkg -Source https://api.nuget.org/v3/index.json
+        nuget push DiagnosticsExtensions.Sentry.${{ steps.get-variables.outputs.version }}.nupkg -Source https://api.nuget.org/v3/index.json

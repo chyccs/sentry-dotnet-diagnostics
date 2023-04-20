@@ -74,109 +74,16 @@ jobs:
       run: |
         $VERSION = Select-String -Path "Properties\AssemblyInfo.cs" -Pattern '^\[assembly: AssemblyVersion\(\"(.+)\"\)\]$' | select -expand Matches | foreach {$_.groups[1].value}
         echo "version=$VERSION" >> $env:GITHUB_OUTPUT
-        $define = "${{ github.base_ref }}".ToUpper()
-        echo "define=$define" >> $env:GITHUB_OUTPUT
 
     - name: Build
       working-directory: ${{ github.workspace }}
       run: |
         msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} ${{env.SOLUTION_FILE_PATH}}
 
-    - name: Upload Output File
+    - name: NuGet Upload
       if: ${{ contains(needs.check-commit.outputs.commit_message, '[ci release]') }}
-      uses: actions/upload-artifact@v3
-      with:
-        name: object-${{ steps.get-variables.outputs.version }}
-        path: '@installer'
-        retention-days: 1
-  
-  release:
-    runs-on: windows-latest
-    needs: [ check-commit, build ]
-    strategy:
-      fail-fast: true
-    if: ${{ contains(needs.check-commit.outputs.commit_message, '[ci release]') }}
-    steps:
-
-    - name: Download Output File
-      uses: actions/download-artifact@v3
-      with:
-        name: object-${{ needs.build.outputs.version }}
-        path: '@installer'
-        if-no-files-found: error
-    
-    - name: Delete Output File
-      uses: geekyeggo/delete-artifact@v2
-      with:
-        name: object-${{ needs.build.outputs.version }}
-
-    - id: cache-codesign
-      uses: actions/cache@v3
-      with:
-        path: "@installer/cert.pfx"
-        key: ${{ runner.os }}-codesign-${{ secrets.CODESIGN_PW }}
-        
-    - name: Restore Code-Sign Certificate
-      if: steps.cache-codesign.outputs.cache-hit != 'true'
-      working-directory: ${{ github.workspace }}/@installer
+      working-directory: ${{ github.workspace }}/SentryDotnetDiagnostics
       run: |
-        "${{ secrets.CODESIGN_CERT }}" > cert.base64.txt
-        certutil -decode .\cert.base64.txt cert.pfx
-
-    - name: Sign Source File
-      working-directory: ${{ github.workspace }}/@installer
-      run: |
-        Get-ChildItem -recurse -path .\source_files -Include *.dll,*.exe,*.ocx | ForEach-Object {
-            .\signtool.exe sign /f cert.pfx /p ${{ secrets.CODESIGN_PW }} /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /v /a $_.FullName
-        }
-
-    - id: cache-nsis
-      uses: actions/cache@v3
-      with:
-        path: ${{ github.workspace }}/NSIS_Plugins
-        key: ${{ runner.os }}-nsis
-
-    - name: Download EnVar plugin for NSIS
-      uses: carlosperate/download-file-action@v1.0.3
-      if: steps.cache-nsis.outputs.cache-hit != 'true'
-      with:
-        file-url: https://nsis.sourceforge.io/mediawiki/images/7/7f/EnVar_plugin.zip
-        file-name: envar_plugin.zip
-        location: ${{ github.workspace }}
-
-    - name: Download PS plugin for NSIS
-      uses: carlosperate/download-file-action@v1.0.3
-      if: steps.cache-nsis.outputs.cache-hit != 'true'
-      with:
-        file-url: https://nsis.sourceforge.io/mediawiki/images/c/cf/PS.zip
-        file-name: PS.zip
-        location: ${{ github.workspace }}
-
-    - name: Extract EnVar plugin
-      if: steps.cache-nsis.outputs.cache-hit != 'true'
-      run: 7z x -o"${{ github.workspace }}/NSIS_Plugins" "${{ github.workspace }}/envar_plugin.zip"
-
-    - name: Extract PS plugin
-      if: steps.cache-nsis.outputs.cache-hit != 'true'
-      run: 7z x -o"${{ github.workspace }}/NSIS_Plugins" "${{ github.workspace }}/PS.zip"
-
-    - name: Create NSIS installer
-      uses: joncloud/makensis-action@publish
-      with:
-        script-file: "@installer/NeoCRM_Centrex_Receiver_Setup.nsi"
-        arguments: /DPRODUCT_VERSION=${{ needs.build.outputs.version }}
-        additional-plugin-paths: ${{ github.workspace }}/NSIS_Plugins/Plugins
-
-    - name: Sign Installer File
-      if: ${{ success() }}
-      working-directory: ${{ github.workspace }}/@installer
-      run: .\signtool.exe sign /f cert.pfx /p ${{ secrets.CODESIGN_PW }} /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /v /a "NeoCRM_Centrex_Receiver_Setup_${{ needs.build.outputs.version }}.exe"
-
-    - name: Archive installer artifacts
-      uses: actions/upload-artifact@v3
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        name: installer-artifact
-        path: "@installer/NeoCRM_Centrex_Receiver_Setup_${{ needs.build.outputs.version }}.exe"
-        retention-days: 1
+        nuget setApiKey ${{ secrets.NUGET }}
+        nuget pack
+        nuget push DiagnosticsExtensions.Sentry.${{ steps.get-variables.outputs.version }}.nupkg -Source https://api.nuget.org/v3/index.json
